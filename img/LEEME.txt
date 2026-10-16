@@ -1,4 +1,4 @@
 Coloca aqui las imagenes con estos nombres exactos:
   barcelona.png   (escudo oficial del F.C. Barcelona)
-  integrante1.jpg
+  integrante1.jpeg
   integrante2.jpg
