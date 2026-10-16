@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>semita.sv - Control de giro con sensor</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body { background:#f1f4f9; }
+  .escudo { height:90px; }
+  .barca { background:linear-gradient(90deg,#004d98,#a50044); color:#fff; border-radius:.5rem; }
+  .display { background:#111; color:#00e5ff; font-family:"Courier New",monospace; font-size:3.5rem;
+             border-radius:.5rem; padding:.2rem 1rem; text-align:center; letter-spacing:.1em; }
+  .foto { width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:.75rem; background:#dde3ee; }
+  .estado-badge { font-size:1.1rem; }
+</style>
+</head>
+<body>
+<div class="container py-3" style="max-width:900px">
+
+  <!-- Encabezado con escudo -->
+  <div class="barca p-3 d-flex align-items-center justify-content-center gap-3 mb-3">
+    <img class="escudo" src="img/barcelona.png" alt="Escudo oficial F.C. Barcelona">
+    <h1 class="h4 mb-0 text-center">Control de giro con sensor<br><small>semita.sv</small></h1>
+  </div>
+
+  <!-- Estado de conexion con la API / dispositivo -->
+  <div class="card mb-3"><div class="card-body d-flex justify-content-between align-items-center">
+    <div><span class="text-muted small text-uppercase">API</span>
+      <span id="apiEstado" class="badge bg-secondary ms-1">---</span></div>
+    <div><span class="text-muted small text-uppercase">Dispositivo</span>
+      <span id="devEstado" class="badge bg-secondary ms-1">---</span></div>
+  </div></div>
+
+  <div class="row g-3 mb-3">
+    <!-- Distancia -->
+    <div class="col-md-6"><div class="card h-100"><div class="card-body text-center">
+      <h2 class="h6 text-uppercase text-muted">Distancia</h2>
+      <div class="display"><span id="distancia">---</span> <small style="font-size:1.2rem">cm</small></div>
+      <div class="mt-3">Motor:
+        <span id="motor" class="badge bg-secondary estado-badge">---</span></div>
+      <div class="mt-2">Modo:
+        <span id="modo" class="badge bg-dark estado-badge">---</span></div>
+    </div></div></div>
+
+    <!-- Controles -->
+    <div class="col-md-6"><div class="card h-100"><div class="card-body">
+      <h2 class="h6 text-uppercase text-muted">Modo de operación</h2>
+      <div class="btn-group w-100 mb-3">
+        <button class="btn btn-outline-success" id="btnAuto" onclick="setModo('automatico')">Automático</button>
+        <button class="btn btn-outline-secondary" id="btnManual" onclick="setModo('manual')">Manual</button>
+      </div>
+      <h2 class="h6 text-uppercase text-muted">Control del motor</h2>
+      <div class="d-grid gap-2">
+        <button class="btn btn-primary btn-lg ctl" onclick="motor('izquierda')">⟲ Izquierda</button>
+        <button class="btn btn-primary btn-lg ctl" onclick="motor('derecha')">Derecha ⟳</button>
+        <button class="btn btn-danger btn-lg ctl" onclick="motor('detener')">■ Detener</button>
+      </div>
+      <div class="form-text mt-2">En modo automático los botones se deshabilitan y el sensor controla el motor.</div>
+    </div></div></div>
+  </div>
+
+  <!-- Integrantes -->
+  <div class="card mb-3"><div class="card-body">
+    <h2 class="h6 text-uppercase text-muted text-center">Integrantes</h2>
+    <div class="row g-3 justify-content-center text-center">
+      <div class="col-6 col-md-4"><img class="foto" src="img/integrante1.jpg" alt="Integrante 1"><div class="fw-bold mt-2">APELLIDO 1</div></div>
+      <div class="col-6 col-md-4"><img class="foto" src="img/integrante2.jpg" alt="Integrante 2"><div class="fw-bold mt-2">APELLIDO 2</div></div>
+    </div>
+  </div></div>
+
+  <div class="text-center mb-4">
+    <img class="escudo" src="img/barcelona.png" alt="Escudo del Barcelona">
+  </div>
+</div>
+
+<script>
+// ====== CONFIGURACION (edita estas dos lineas) ======
+const API_URL = "https://semita-api.semita2.workers.dev";  // sin barra final
+const WEB_KEY = "semita";                                  // igual al secreto WEB_KEY de Cloudflare
+// =====================================================
+
+async function api(ruta, metodo = "GET", cuerpo = null) {
+  const r = await fetch(API_URL + ruta, {
+    method: metodo,
+    headers: { "Content-Type": "application/json", "X-API-Key": WEB_KEY },
+    body: cuerpo ? JSON.stringify(cuerpo) : null
+  });
+  const datos = await r.json();
+  if (!r.ok && r.status !== 409) throw new Error(datos.error || r.status);
+  return datos;
+}
+
+function badge(id, texto, clase) {
+  const e = document.getElementById(id);
+  e.textContent = texto;
+  e.className = "badge ms-1 " + clase;
+}
+
+function pintar(d) {
+  document.getElementById("distancia").textContent = d.distancia < 0 ? "---" : d.distancia;
+  const m = document.getElementById("motor");
+  m.textContent = d.motor.toUpperCase();
+  m.className = "badge estado-badge " + (d.motor === "detenido" ? "bg-secondary" : "bg-info text-dark");
+  document.getElementById("modo").textContent = d.modo.toUpperCase();
+  const auto = d.modo === "automatico";
+  document.querySelectorAll(".ctl").forEach(b => b.disabled = auto);
+  document.getElementById("btnAuto").classList.toggle("active", auto);
+  document.getElementById("btnManual").classList.toggle("active", !auto);
+  badge("apiEstado", "Conectada", "bg-success");
+  badge("devEstado", d.online ? "En linea" : "Sin senal", d.online ? "bg-success" : "bg-danger");
+}
+
+async function actualizar() {
+  try { pintar(await api("/api/estado")); }
+  catch (e) {
+    badge("apiEstado", "Sin conexion", "bg-danger");
+    badge("devEstado", "---", "bg-secondary");
+  }
+}
+
+async function motor(accion) {
+  try { pintar(await api("/api/motor", "POST", { accion })); } catch (e) {}
+}
+async function setModo(modo) {
+  try { pintar(await api("/api/modo", "POST", { modo })); } catch (e) {}
+}
+
+setInterval(actualizar, 1000);
+actualizar();
+</script>
+</body>
+</html>
